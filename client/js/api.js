@@ -1,4 +1,4 @@
-const API_BASE = 'http://localhost:5000/api';
+const API_BASE = 'https://grievance-redressal-system-2h3k.onrender.com/';
 
 export const api = {
     async fetch(endpoint, options = {}) {
