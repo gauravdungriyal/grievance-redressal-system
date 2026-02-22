@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-    origin: 'https://grievance-redressal-system-m83you6sx-gauravdungriyals-projects.vercel.app/', // Update to match the single URL
+    origin: 'https://grievance-redressal-system-plum.vercel.app/', // Update to match the single URL
     credentials: true
 }));
 app.use(express.json());
