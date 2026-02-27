@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabaseClient');
 const { authMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
+const { sendAdminNotification, sendStatusUpdateEmail } = require('../utils/emailService');
 
 // Helper to generate complaint ID
 const generateComplaintID = async () => {
@@ -48,7 +49,28 @@ router.post('/', authMiddleware, async (req, res) => {
 
         if (error) throw error;
 
+        // Fetch User Details to include in the email
+        const { data: userData, error: userError } = await supabase
+            .from('users')
+            .select('name, scholar_id')
+            .eq('id', req.user.id)
+            .single();
+
         // Notify Admin via Email
+        const { data: adminUsers, error: adminError } = await supabase
+            .from('users')
+            .select('email')
+            .eq('role', 'admin');
+
+        if (!adminError && adminUsers && adminUsers.length > 0) {
+            const adminEmails = adminUsers.map(admin => admin.email).filter(Boolean);
+            const emailData = {
+                ...data,
+                student_name: userData?.name || 'Unknown',
+                scholar_id: userData?.scholar_id || 'Unknown'
+            };
+            sendAdminNotification(emailData, adminEmails).catch(err => console.error('Email failed:', err));
+        }
 
         res.status(201).json(data);
     } catch (err) {
@@ -106,8 +128,17 @@ router.patch('/:id', authMiddleware, adminMiddleware, async (req, res) => {
 
         if (error) throw error;
 
-        // If status is Resolved, notify the student
-        // Notify the student on status change
+        // Fetch the student's email and name using the user_id attached to the complaint
+        const { data: studentUser, error: studentError } = await supabase
+            .from('users')
+            .select('email, name')
+            .eq('id', data.user_id)
+            .single();
+
+        if (!studentError && studentUser && studentUser.email) {
+            // Notify the student on status change
+            sendStatusUpdateEmail(studentUser.email, studentUser.name || 'Student', data).catch(err => console.error('Status update email failed:', err));
+        }
 
         res.json(data);
     } catch (err) {
