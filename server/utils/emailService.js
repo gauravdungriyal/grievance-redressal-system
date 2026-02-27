@@ -105,7 +105,7 @@ const sendVerificationEmail = async (userEmail, userName, verificationToken) => 
 
     // Assuming the frontend runs on port 5500 or the Vercel deployed URL
     // For development, we'll point it to the backend api which will redirect.
-    const verificationUrl = `http://localhost:${process.env.PORT || 5000}/api/auth/verify/${verificationToken}`;
+    const verificationUrl = `https://grievance-redressal-system-udzc.onrender.com/api/auth/verify/${verificationToken}`;
 
     try {
         const mailOptions = {
