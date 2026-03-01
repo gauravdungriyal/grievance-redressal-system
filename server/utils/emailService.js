@@ -17,8 +17,8 @@ const initTransporter = async () => {
             // Use real credentials if provided
             const smtpConfig = {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: 587, // Force port 587 for better compatibility on Render
-                secure: false, // Must be false for port 587
+                port: 465, // Switch to 465 (SMTPS) for better cloud compatibility
+                secure: true, // true for port 465
                 family: 4, // FORCE IPv4 to avoid Render's IPv6 routing issues (ENETUNREACH)
                 auth: {
                     user: process.env.SMTP_USER,
