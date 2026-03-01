@@ -10,24 +10,22 @@ const initTransporter = async () => {
             // Use real credentials if provided
             const smtpConfig = {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: parseInt(process.env.SMTP_PORT) || 587,
-                secure: process.env.SMTP_PORT === '465',
+                port: 587, // Force port 587 for better compatibility on Render
+                secure: false, // Must be false for port 587
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
                 },
                 tls: {
-                    rejectUnauthorized: false
+                    rejectUnauthorized: false,
+                    minVersion: 'TLSv1.2'
                 }
             };
 
-            // If it's gmail, we can add the service hint
-            if (smtpConfig.host.includes('gmail.com')) {
-                smtpConfig.service = 'gmail';
-            }
+            // REMOVED service: 'gmail' as it defaults to port 465/IPv6 which fails on Render
 
             transporter = nodemailer.createTransport(smtpConfig);
-            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, user: ${smtpConfig.user}`);
+            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, port: ${smtpConfig.port}`);
 
             // Verify connection configuration
             await transporter.verify();
