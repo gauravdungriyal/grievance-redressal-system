@@ -9,14 +9,22 @@ const initTransporter = async () => {
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
             // Use real credentials if provided
             transporter = nodemailer.createTransport({
-                host: process.env.SMTP_HOST || 'smtp.ethereal.email',
+                host: process.env.SMTP_HOST || 'smtp.gmail.com',
                 port: process.env.SMTP_PORT || 587,
+                secure: false, // true for 465, false for other ports
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
+                },
+                tls: {
+                    rejectUnauthorized: false // Helps with some production network restrictions
                 }
             });
-            console.log('SMTP transporter initialized with provided credentials.');
+            console.log(`Attempting to verify SMTP transporter with host: ${process.env.SMTP_HOST}...`);
+
+            // Verify connection configuration
+            await transporter.verify();
+            console.log('SMTP transporter verified and ready to send emails.');
         } else {
             // Generate test credentials automatically
             console.log('No valid SMTP credentials found. Generating Ethereal test account...');
@@ -34,7 +42,11 @@ const initTransporter = async () => {
             console.log('Ethereal test account automatically generated and ready.');
         }
     } catch (err) {
-        console.error('Failed to initialize nodemailer transporter:', err);
+        console.error('Failed to initialize nodemailer transporter:');
+        console.error('Error Name:', err.name);
+        console.error('Error Message:', err.message);
+        console.error('Error Code:', err.code);
+        console.error('Error Command:', err.command);
     }
 };
 
