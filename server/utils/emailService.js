@@ -1,43 +1,31 @@
 const nodemailer = require('nodemailer');
-const dns = require('dns');
-
-// Force Node.js to prefer IPv4 over IPv6 globally
-// This is critical for environments like Render where IPv6 might be unreachable
-if (typeof dns.setDefaultResultOrder === 'function') {
-    dns.setDefaultResultOrder('ipv4first');
-}
 
 let transporter = null;
 let isTestAccount = false;
 
-// Initialize the transporter asynchronously
+// Initialize the transporter using Brevo (Sendinblue) settings
 const initTransporter = async () => {
     try {
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-            // Use real credentials if provided
             const smtpConfig = {
-                host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: 465, // Switch to 465 (SMTPS) for better cloud compatibility
-                secure: true, // true for port 465
-                family: 4, // FORCE IPv4 to avoid Render's IPv6 routing issues (ENETUNREACH)
+                host: 'smtp-relay.brevo.com',
+                port: 587,
+                secure: false, // STARTTLS
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
                 },
                 tls: {
-                    rejectUnauthorized: false,
-                    minVersion: 'TLSv1.2'
+                    rejectUnauthorized: false // Helps in some restricted environments
                 }
             };
 
-            // REMOVED service: 'gmail' as it defaults to port 465/IPv6 which fails on Render
-
+            console.log(`[DEBUG] Initializing Brevo SMTP with user: ${smtpConfig.auth.user}`);
             transporter = nodemailer.createTransport(smtpConfig);
-            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, port: ${smtpConfig.port}, family: IPv4`);
 
             // Verify connection configuration
             await transporter.verify();
-            console.log('SMTP transporter verified and ready to send emails.');
+            console.log('Brevo SMTP transporter verified and ready to send emails.');
         } else {
             // Generate test credentials automatically
             console.log('No valid SMTP credentials found. Generating Ethereal test account...');
@@ -56,11 +44,8 @@ const initTransporter = async () => {
         }
     } catch (err) {
         console.error('Failed to initialize nodemailer transporter:');
-        console.error('Error Name:', err.name);
-        console.error('Error Message:', err.message);
-        console.error('Error Code:', err.code);
-        console.error('Error Command:', err.command);
-        transporter = null; // Ensure transporter is null if it fails to verify
+        console.error('Error Details:', err.message);
+        transporter = null;
     }
 };
 
