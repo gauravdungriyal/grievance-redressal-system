@@ -8,19 +8,26 @@ const initTransporter = async () => {
     try {
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
             // Use real credentials if provided
-            transporter = nodemailer.createTransport({
+            const smtpConfig = {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
-                port: process.env.SMTP_PORT || 587,
-                secure: false, // true for 465, false for other ports
+                port: parseInt(process.env.SMTP_PORT) || 587,
+                secure: process.env.SMTP_PORT === '465',
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
                 },
                 tls: {
-                    rejectUnauthorized: false // Helps with some production network restrictions
+                    rejectUnauthorized: false
                 }
-            });
-            console.log(`Attempting to verify SMTP transporter with host: ${process.env.SMTP_HOST}...`);
+            };
+
+            // If it's gmail, we can add the service hint
+            if (smtpConfig.host.includes('gmail.com')) {
+                smtpConfig.service = 'gmail';
+            }
+
+            transporter = nodemailer.createTransport(smtpConfig);
+            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, user: ${smtpConfig.user}`);
 
             // Verify connection configuration
             await transporter.verify();
@@ -91,6 +98,7 @@ const sendAdminNotification = async (complaintData, adminEmails) => {
             `,
         };
 
+        console.log(`[DEBUG] Attempting to sendMail to: ${mailOptions.to}, from: ${mailOptions.from}`);
         const info = await transporter.sendMail(mailOptions);
         console.log(`Email notification sent to admins: ${info.messageId}`);
 

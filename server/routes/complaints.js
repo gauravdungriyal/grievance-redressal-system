@@ -29,6 +29,7 @@ router.post('/', authMiddleware, async (req, res) => {
 
     try {
         const complaintID = await generateComplaintID();
+
         const { data, error } = await supabase
             .from('complaints')
             .insert([
@@ -59,23 +60,27 @@ router.post('/', authMiddleware, async (req, res) => {
         // Notify Admin via Email
         const { data: adminUsers, error: adminError } = await supabase
             .from('users')
-            .select('email, name')
+            .select('email, name, role')
             .eq('role', 'admin');
 
-        console.log(`Admin search result: ${adminUsers ? adminUsers.length : 0} admins found.`);
-        if (adminError) console.error('Error fetching admin users:', adminError);
+        console.log(`[DEBUG] Admin Query: ${adminUsers ? adminUsers.length : 0} found. Error: ${adminError ? adminError.message : 'None'}`);
 
-        if (!adminError && adminUsers && adminUsers.length > 0) {
+        if (adminUsers && adminUsers.length > 0) {
             const adminEmails = adminUsers.map(admin => admin.email).filter(Boolean);
-            console.log(`Sending notification to: ${adminEmails.join(', ')}`);
+            console.log(`[DEBUG] Targeting Admin Emails: ${adminEmails.join(', ')}`);
+
             const emailData = {
                 ...data,
                 student_name: userData?.name || 'Unknown',
                 scholar_id: userData?.scholar_id || 'Unknown'
             };
-            sendAdminNotification(emailData, adminEmails).catch(err => console.error('Critical Email failure:', err));
+
+            // Trigger notification WITHOUT awaiting to keep response fast, but with better error handling
+            sendAdminNotification(emailData, adminEmails)
+                .then(() => console.log('[DEBUG] sendAdminNotification promise resolved.'))
+                .catch(err => console.error('[DEBUG] sendAdminNotification promise REJECTED:', err));
         } else {
-            console.log('No admins found with role "admin" to notify.');
+            console.log('[DEBUG] No admin users found to satisfy notification query.');
         }
 
         res.status(201).json(data);
