@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const supabase = require('../supabaseClient');
-const { sendVerificationEmail } = require('../utils/emailService');
+
 
 // @route   POST api/auth/signup
 // @desc    Register a user
@@ -27,10 +27,7 @@ router.post('/signup', async (req, res) => {
         const salt = await bcrypt.genSalt(10);
         const password_hash = await bcrypt.hash(password, salt);
 
-        // Generate verification token
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-
-        // Save to Supabase (assuming is_verified and verification_token columns exist)
+        // Save to Supabase
         const { data: newUser, error } = await supabase
             .from('users')
             .insert([
@@ -40,8 +37,8 @@ router.post('/signup', async (req, res) => {
                     email,
                     password_hash,
                     role: role || 'student',
-                    is_verified: false,
-                    verification_token: verificationToken
+                    is_verified: true, // Auto-verify as we removed email verification
+                    verification_token: null
                 }
             ])
             .select()
@@ -49,49 +46,13 @@ router.post('/signup', async (req, res) => {
 
         if (error) throw error;
 
-        // Send the verification email asynchronously
-        sendVerificationEmail(email, name, verificationToken).catch(err => console.error('Verification email failed:', err));
-
-        res.status(201).json({ message: 'User registered successfully. Please check your email to verify your account.' });
+        res.status(201).json({ message: 'User registered successfully. You can now log in.' });
     } catch (err) {
         console.error(err.message);
         res.status(500).send('Server error');
     }
 });
 
-// @route   GET api/auth/verify/:token
-// @desc    Verify user email
-router.get('/verify/:token', async (req, res) => {
-    try {
-        const { token } = req.params;
-
-        // Find user by token
-        const { data: user, error } = await supabase
-            .from('users')
-            .select('id')
-            .eq('verification_token', token)
-            .single();
-
-        if (error || !user) {
-            return res.status(400).json({ message: 'Invalid or expired verification token.' });
-        }
-
-        // Update user to verified and remove token
-        const { error: updateError } = await supabase
-            .from('users')
-            .update({ is_verified: true, verification_token: null })
-            .eq('id', user.id);
-
-        if (updateError) throw updateError;
-
-        // Redirect to frontend login with success message
-        // The frontend is being served by the backend from the root '/'
-        res.redirect('/?verified=true');
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error during verification.');
-    }
-});
 
 // @route   POST api/auth/login
 // @desc    Authenticate user & get token
@@ -109,10 +70,6 @@ router.post('/login', async (req, res) => {
             return res.status(400).json({ message: 'Invalid Credentials' });
         }
 
-        // Check if user is verified
-        if (user.is_verified === false) {
-            return res.status(403).json({ message: 'Please verify your email address before logging in.' });
-        }
 
         const isMatch = await bcrypt.compare(password, user.password_hash);
         if (!isMatch) {

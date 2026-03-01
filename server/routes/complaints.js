@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabaseClient');
 const { authMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
-const { sendAdminNotification, sendStatusUpdateEmail } = require('../utils/emailService');
+
 
 // Helper to generate complaint ID
 const generateComplaintID = async () => {
@@ -49,39 +49,6 @@ router.post('/', authMiddleware, async (req, res) => {
             .single();
 
         if (error) throw error;
-
-        // Fetch User Details to include in the email
-        const { data: userData, error: userError } = await supabase
-            .from('users')
-            .select('name, scholar_id')
-            .eq('id', req.user.id)
-            .single();
-
-        // Notify Admin via Email
-        const { data: adminUsers, error: adminError } = await supabase
-            .from('users')
-            .select('email, name, role')
-            .eq('role', 'admin');
-
-        console.log(`[DEBUG] Admin Query: ${adminUsers ? adminUsers.length : 0} found. Error: ${adminError ? adminError.message : 'None'}`);
-
-        if (adminUsers && adminUsers.length > 0) {
-            const adminEmails = adminUsers.map(admin => admin.email).filter(Boolean);
-            console.log(`[DEBUG] Targeting Admin Emails: ${adminEmails.join(', ')}`);
-
-            const emailData = {
-                ...data,
-                student_name: userData?.name || 'Unknown',
-                scholar_id: userData?.scholar_id || 'Unknown'
-            };
-
-            // Trigger notification WITHOUT awaiting to keep response fast, but with better error handling
-            sendAdminNotification(emailData, adminEmails)
-                .then(() => console.log('[DEBUG] sendAdminNotification promise resolved.'))
-                .catch(err => console.error('[DEBUG] sendAdminNotification promise REJECTED:', err));
-        } else {
-            console.log('[DEBUG] No admin users found to satisfy notification query.');
-        }
 
         res.status(201).json(data);
     } catch (err) {
@@ -138,18 +105,6 @@ router.patch('/:id', authMiddleware, adminMiddleware, async (req, res) => {
             .single();
 
         if (error) throw error;
-
-        // Fetch the student's email and name using the user_id attached to the complaint
-        const { data: studentUser, error: studentError } = await supabase
-            .from('users')
-            .select('email, name')
-            .eq('id', data.user_id)
-            .single();
-
-        if (!studentError && studentUser && studentUser.email) {
-            // Notify the student on status change
-            sendStatusUpdateEmail(studentUser.email, studentUser.name || 'Student', data).catch(err => console.error('Status update email failed:', err));
-        }
 
         res.json(data);
     } catch (err) {
