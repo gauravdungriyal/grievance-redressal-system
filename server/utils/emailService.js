@@ -7,20 +7,23 @@ let isTestAccount = false;
 const initTransporter = async () => {
     try {
         if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+            const port = parseInt(process.env.SMTP_PORT) || 465;
+            const isSecure = port === 465;
+
             const smtpConfig = {
-                host: 'smtp-relay.brevo.com',
-                port: 587,
-                secure: false, // STARTTLS
+                host: process.env.SMTP_HOST || 'smtp-relay.brevo.com',
+                port: port,
+                secure: isSecure,
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
                 },
                 tls: {
-                    rejectUnauthorized: false // Helps in some restricted environments
+                    rejectUnauthorized: false
                 }
             };
 
-            console.log(`[DEBUG] Initializing Brevo SMTP with user: ${smtpConfig.auth.user}`);
+            console.log(`[DEBUG] Initializing Brevo SMTP on port: ${port}, secure: ${isSecure}`);
             transporter = nodemailer.createTransport(smtpConfig);
 
             // Verify connection configuration
