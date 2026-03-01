@@ -59,17 +59,23 @@ router.post('/', authMiddleware, async (req, res) => {
         // Notify Admin via Email
         const { data: adminUsers, error: adminError } = await supabase
             .from('users')
-            .select('email')
+            .select('email, name')
             .eq('role', 'admin');
+
+        console.log(`Admin search result: ${adminUsers ? adminUsers.length : 0} admins found.`);
+        if (adminError) console.error('Error fetching admin users:', adminError);
 
         if (!adminError && adminUsers && adminUsers.length > 0) {
             const adminEmails = adminUsers.map(admin => admin.email).filter(Boolean);
+            console.log(`Sending notification to: ${adminEmails.join(', ')}`);
             const emailData = {
                 ...data,
                 student_name: userData?.name || 'Unknown',
                 scholar_id: userData?.scholar_id || 'Unknown'
             };
-            sendAdminNotification(emailData, adminEmails).catch(err => console.error('Email failed:', err));
+            sendAdminNotification(emailData, adminEmails).catch(err => console.error('Critical Email failure:', err));
+        } else {
+            console.log('No admins found with role "admin" to notify.');
         }
 
         res.status(201).json(data);

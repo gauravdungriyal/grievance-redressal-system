@@ -60,12 +60,12 @@ initTransporter();
  */
 const sendAdminNotification = async (complaintData, adminEmails) => {
     if (!adminEmails || adminEmails.length === 0) {
-        console.log('No admin emails available to send notification.');
+        console.log('DEBUG: sendAdminNotification exit - adminEmails is empty or null.');
         return;
     }
 
     if (!transporter) {
-        console.log('Email transporter not ready yet.');
+        console.log('DEBUG: sendAdminNotification exit - transporter is null.');
         return;
     }
 
