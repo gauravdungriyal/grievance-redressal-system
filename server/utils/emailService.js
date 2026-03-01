@@ -12,6 +12,7 @@ const initTransporter = async () => {
                 host: process.env.SMTP_HOST || 'smtp.gmail.com',
                 port: 587, // Force port 587 for better compatibility on Render
                 secure: false, // Must be false for port 587
+                family: 4, // FORCE IPv4 to avoid Render's IPv6 routing issues (ENETUNREACH)
                 auth: {
                     user: process.env.SMTP_USER,
                     pass: process.env.SMTP_PASS
@@ -25,7 +26,7 @@ const initTransporter = async () => {
             // REMOVED service: 'gmail' as it defaults to port 465/IPv6 which fails on Render
 
             transporter = nodemailer.createTransport(smtpConfig);
-            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, port: ${smtpConfig.port}`);
+            console.log(`[DEBUG] Initializing SMTP with host: ${smtpConfig.host}, port: ${smtpConfig.port}, family: IPv4`);
 
             // Verify connection configuration
             await transporter.verify();
