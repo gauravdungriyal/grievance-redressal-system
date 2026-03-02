@@ -15,12 +15,27 @@ export function renderLogin(container, navigate) {
                 </div>
                 <div class="form-group">
                     <label>Password</label>
-                    <input type="password" name="password" class="form-input" placeholder="••••••••" required>
+                    <div class="password-wrapper">
+                        <input type="password" name="password" id="password-input" class="form-input" placeholder="••••••••" required style="padding-right: 40px;">
+                        <button type="button" id="toggle-password" class="password-toggle" tabindex="-1">
+                            <i data-lucide="eye"></i>
+                        </button>
+                    </div>
                 </div>
                 <button type="submit" class="btn">Sign In</button>
             </form>
         </div>
     `;
+
+    const passwordInput = document.getElementById('password-input');
+    const toggleBtn = document.getElementById('toggle-password');
+
+    toggleBtn.onclick = () => {
+        const isPassword = passwordInput.type === 'password';
+        passwordInput.type = isPassword ? 'text' : 'password';
+        toggleBtn.innerHTML = `<i data-lucide="${isPassword ? 'eye-off' : 'eye'}"></i>`;
+        lucide.createIcons();
+    };
 
     document.getElementById('login-form').onsubmit = async (e) => {
         e.preventDefault();

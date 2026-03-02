@@ -139,6 +139,32 @@ body.dark-mode {
     border: 1px solid var(--border-dark);
 }
 
+.password-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.password-toggle {
+    position: absolute;
+    right: 12px;
+    background: none;
+    border: none;
+    color: inherit;
+    opacity: 0.6;
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+}
+
+.password-toggle:hover {
+    opacity: 1;
+    color: var(--primary);
+}
+
 .form-input:focus {
     outline: 2px solid var(--primary);
     border-color: var(--primary);
