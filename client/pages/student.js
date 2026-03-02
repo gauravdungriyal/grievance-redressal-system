@@ -23,6 +23,7 @@ export async function renderStudentDashboard(container) {
                             <th>ID</th>
                             <th>Category</th>
                             <th>Lab</th>
+                            <th>PC No.</th>
                             <th>Title</th>
                             <th>Status</th>
                             <th>Resolution</th>
@@ -54,8 +55,8 @@ export async function renderStudentDashboard(container) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>LAB</label>
-                    <select name="lab" class="form-input" required>
+                    <label>LAB (Optional)</label>
+                    <select name="lab" class="form-input">
                         <option value="" disabled selected>-- Select Lab --</option>
                         <option value="BSC IT Lab">BSC IT Lab</option>
                         <option value="BCA Lab">BCA Lab</option>
@@ -63,12 +64,8 @@ export async function renderStudentDashboard(container) {
                     </select>
                 </div>
                 <div class="form-group">
-                    <label>Priority</label>
-                    <select name="priority" class="form-input" required>
-                        <option value="Low">Low</option>
-                        <option value="Medium">Medium</option>
-                        <option value="High">High</option>
-                    </select>
+                    <label>PC Number (Optional)</label>
+                    <input type="text" name="pc_number" class="form-input" placeholder="e.g. PC-01">
                 </div>
                 <div class="form-group">
                     <label>Title</label>
@@ -120,6 +117,7 @@ async function loadComplaints() {
                 <td style="font-weight:600;">${c.complaint_id}</td>
                 <td>${c.category}</td>
                 <td style="font-size: 0.85rem; color: var(--primary); font-weight: 500;">${c.lab || '-'}</td>
+                <td style="font-size: 0.85rem; font-weight: 500;">${c.pc_number || '-'}</td>
                 <td>${c.title}</td>
                 <td><span class="status-badge status-${c.status.toLowerCase().replace(' ', '')}">${c.status}</span></td>
                 <td style="font-size: 0.9rem; font-style: italic; color: var(--primary);">${c.resolution_note || '-'}</td>
