@@ -25,7 +25,7 @@ const generateComplaintID = async () => {
 // @route   POST api/complaints
 // @desc    Submit a new complaint
 router.post('/', authMiddleware, async (req, res) => {
-    const { category, lab, title, description, priority, attachment_url } = req.body;
+    const { category, lab, title, description, pc_number, attachment_url } = req.body;
 
     try {
         const complaintID = await generateComplaintID();
@@ -38,9 +38,10 @@ router.post('/', authMiddleware, async (req, res) => {
                     user_id: req.user.id,
                     category,
                     lab,
+                    pc_number,
                     title,
                     description,
-                    priority,
+                    priority: 'Low',
                     attachment_url,
                     status: 'Pending'
                 }
