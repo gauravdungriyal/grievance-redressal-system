@@ -28,7 +28,6 @@ export async function renderAdminDashboard(container) {
                             <th>From</th>
                             <th>Category/Lab</th>
                             <th>Status</th>
-                            <th>Priority</th>
                             <th>Action</th>
                         </tr>
                     </thead>
@@ -98,10 +97,9 @@ async function loadAdminComplaints() {
                     <div style="font-size: 0.75rem; opacity: 0.7;">${c.lab ? `📍 ${c.lab}` : ''}</div>
                 </td>
                 <td><span class="status-badge status-${c.status.toLowerCase().replace(' ', '')}">${c.status}</span></td>
-                <td><span style="color: ${c.priority === 'High' ? '#ef4444' : (c.priority === 'Medium' ? '#f59e0b' : '#3b82f6')}">${c.priority}</span></td>
                 <td><button class="btn" style="padding: 0.4rem; font-size:0.8rem;" onclick="openResolveModal('${c.id}', '${c.complaint_id}', '${c.status}', '${c.resolution_note || ''}')">Manage</button></td>
             </tr>
-        `).join('') || '<tr><td colspan="6" style="text-align:center;">No complaints found.</td></tr>';
+        `).join('') || '<tr><td colspan="5" style="text-align:center;">No complaints found.</td></tr>';
 
         // Update stats
         document.getElementById('stat-total').innerText = complaints.length;
