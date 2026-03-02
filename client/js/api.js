@@ -26,7 +26,6 @@ export const api = {
 
     auth: {
         login: (credentials) => api.fetch('/auth/login', { method: 'POST', body: JSON.stringify(credentials) }),
-        signup: (userData) => api.fetch('/auth/signup', { method: 'POST', body: JSON.stringify(userData) }),
         logout: () => api.fetch('/auth/logout', { method: 'POST' }),
         me: () => api.fetch('/auth/me')
     },

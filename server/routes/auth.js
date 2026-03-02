@@ -6,54 +6,6 @@ const crypto = require('crypto');
 const supabase = require('../supabaseClient');
 
 
-// @route   POST api/auth/signup
-// @desc    Register a user
-router.post('/signup', async (req, res) => {
-    const { name, scholar_id, email, password, role } = req.body;
-
-    try {
-        // Check if user exists
-        const { data: existingUser } = await supabase
-            .from('users')
-            .select('*')
-            .eq('scholar_id', scholar_id)
-            .single();
-
-        if (existingUser) {
-            return res.status(400).json({ message: 'User already exists with this Scholar ID' });
-        }
-
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const password_hash = await bcrypt.hash(password, salt);
-
-        // Save to Supabase
-        const { data: newUser, error } = await supabase
-            .from('users')
-            .insert([
-                {
-                    name,
-                    scholar_id,
-                    email,
-                    password_hash,
-                    role: role || 'student',
-                    is_verified: true, // Auto-verify as we removed email verification
-                    verification_token: null
-                }
-            ])
-            .select()
-            .single();
-
-        if (error) throw error;
-
-        res.status(201).json({ message: 'User registered successfully. You can now log in.' });
-    } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
-    }
-});
-
-
 // @route   POST api/auth/login
 // @desc    Authenticate user & get token
 router.post('/login', async (req, res) => {

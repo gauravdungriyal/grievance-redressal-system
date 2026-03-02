@@ -1,5 +1,5 @@
 import { api } from './api.js';
-import { renderLogin, renderSignup } from '../components/auth.js';
+import { renderLogin } from '../components/auth.js';
 import { renderSidebar, showToast } from '../components/ui.js';
 import { renderStudentDashboard } from '../pages/student.js';
 import { renderAdminDashboard } from '../pages/admin.js';
@@ -32,12 +32,11 @@ const app = {
         const dashView = document.getElementById('dashboard-view');
         const sidebar = document.getElementById('sidebar-container');
 
-        if (view === 'login' || view === 'signup') {
+        if (view === 'login') {
             sidebar.style.display = 'none';
             dashView.style.display = 'none';
             authView.style.display = 'block';
-            if (view === 'login') renderLogin(authView, (v) => this.navigate(v));
-            else renderSignup(authView, (v) => this.navigate(v));
+            renderLogin(authView, (v) => this.navigate(v));
         } else if (view === 'dashboard' || view === 'notifications') {
             authView.style.display = 'none';
             dashView.style.display = 'block';
