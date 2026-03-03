@@ -51,6 +51,28 @@ router.post('/', authMiddleware, async (req, res) => {
 
         if (error) throw error;
 
+        // Send notification via Formspree
+        const formId = process.env.FORMSPREE_FORM_ID;
+        if (formId && formId !== 'YOUR_FORM_ID_HERE') {
+            fetch(`https://formspree.io/f/${formId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify({
+                    subject: `New Complaint: ${data.complaint_id}`,
+                    complaint_id: data.complaint_id,
+                    category: data.category,
+                    lab: data.lab || 'N/A',
+                    pc_number: data.pc_number || 'N/A',
+                    title: data.title,
+                    description: data.description,
+                    submitted_by_id: req.user.id
+                })
+            }).catch(err => console.error('Formspree notification failed:', err));
+        }
+
         res.status(201).json(data);
     } catch (err) {
         console.error(err.message);
