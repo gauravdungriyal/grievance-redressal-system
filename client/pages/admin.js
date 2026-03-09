@@ -16,8 +16,16 @@ export async function renderAdminDashboard(container) {
         </div>
 
         <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-                <h3>Active Complaints</h3>
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 1rem;">
+                    <h3>Active Complaints</h3>
+                    <select id="lab-filter" class="form-input" style="width: auto; margin-bottom: 0;">
+                        <option value="all">All Labs</option>
+                        <option value="BSC IT Lab">BSC IT Lab</option>
+                        <option value="BCA Lab">BCA Lab</option>
+                        <option value="MCA Lab">MCA Lab</option>
+                    </select>
+                </div>
                 <button class="btn" style="width: auto;" id="btn-export">Export to CSV</button>
             </div>
             <div class="table-container">
@@ -64,6 +72,10 @@ export async function renderAdminDashboard(container) {
 
     loadAdminComplaints();
 
+    document.getElementById('lab-filter').onchange = (e) => {
+        loadAdminComplaints(e.target.value);
+    };
+
     document.getElementById('resolve-form').onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById('complaint-uuid').value;
@@ -73,7 +85,7 @@ export async function renderAdminDashboard(container) {
             await api.complaints.update(id, { status, resolution_note: note });
             showToast('Complaint updated');
             document.getElementById('resolve-modal').style.display = 'none';
-            loadAdminComplaints();
+            loadAdminComplaints(document.getElementById('lab-filter').value);
         } catch (err) {
             showToast(err.message, 'error');
         }
@@ -82,9 +94,14 @@ export async function renderAdminDashboard(container) {
     document.getElementById('btn-export').onclick = exportCSV;
 }
 
-async function loadAdminComplaints() {
+async function loadAdminComplaints(filterLab = 'all') {
     try {
-        const complaints = await api.complaints.getAll();
+        let complaints = await api.complaints.getAll();
+
+        if (filterLab !== 'all') {
+            complaints = complaints.filter(c => c.lab === filterLab);
+        }
+
         const list = document.getElementById('admin-complaints-list');
         list.innerHTML = complaints.map(c => `
             <tr>
