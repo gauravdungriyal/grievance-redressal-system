@@ -38,7 +38,7 @@ export async function renderStudentDashboard(container) {
         </div>
 
         <div id="complaint-modal" class="glass" style="display:none; position: fixed; top: 10vh; left: 25%; width: 50%; padding: 2rem; z-index: 100;">
-             <h2>Submit New Complaint</h2>
+             <h2>Submit New Complaint/Idea</h2>
              <form id="complaint-form" style="margin-top: 1rem;">
                 <div class="form-group">
                     <label>Category</label>
