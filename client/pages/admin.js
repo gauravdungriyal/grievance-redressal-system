@@ -3,9 +3,12 @@ import { showToast } from '../components/ui.js';
 
 export async function renderAdminDashboard(container) {
     container.innerHTML = `
-        <header style="margin-bottom: 2rem;">
-            <h1>Admin Dashboard</h1>
-            <p style="opacity: 0.7;">Manage student grievances and technical issues</p>
+        <header style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+                <h1>Admin Dashboard</h1>
+                <p style="opacity: 0.7;">Manage student grievances and technical issues</p>
+            </div>
+            <button class="btn" style="width: auto;" id="btn-toggle-analytics">📊 View Analytics</button>
         </header>
 
         <div class="stats-grid">
@@ -15,7 +18,7 @@ export async function renderAdminDashboard(container) {
             <div class="stat-card glass"><p>Resolved</p><div class="stat-number" id="stat-resolved">0</div></div>
         </div>
 
-        <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem;">
+        <div id="analytics-section" class="glass" style="padding: 1.5rem; margin-bottom: 2rem; display: none;">
             <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
                 📊 Lab Comparison Analytics
             </h3>
@@ -69,6 +72,17 @@ export async function renderAdminDashboard(container) {
                     </select>
                 </div>
                 <div class="form-group">
+                    <label>Quick Reply / Templates</label>
+                    <select id="quick-reply" class="form-input" onchange="if(this.value) { document.getElementById('resolution-note').value = this.value; this.value=''; }">
+                        <option value="">-- Select a template --</option>
+                        <option value="Hardware replaced, issue fixed.">Hardware replaced, issue fixed.</option>
+                        <option value="Software updated/reinstalled, issue fixed.">Software updated/reinstalled, issue fixed.</option>
+                        <option value="Forwarded to vendor/IT, awaiting parts/support.">Forwarded to vendor/IT, awaiting parts/support.</option>
+                        <option value="User error, instructed properly.">User error, instructed properly.</option>
+                        <option value="Duplicate complaint, merging with existing.">Duplicate complaint, merging with existing.</option>
+                    </select>
+                </div>
+                <div class="form-group">
                     <label>Resolution/Note</label>
                     <textarea id="resolution-note" class="form-input" rows="4"></textarea>
                 </div>
@@ -81,6 +95,18 @@ export async function renderAdminDashboard(container) {
     `;
 
     loadAdminComplaints();
+
+    document.getElementById('btn-toggle-analytics').onclick = () => {
+        const section = document.getElementById('analytics-section');
+        const btn = document.getElementById('btn-toggle-analytics');
+        if (section.style.display === 'none') {
+            section.style.display = 'block';
+            btn.innerText = 'Hide Analytics';
+        } else {
+            section.style.display = 'none';
+            btn.innerText = '📊 View Analytics';
+        }
+    };
 
     document.getElementById('lab-filter').onchange = (e) => {
         loadAdminComplaints(e.target.value);
@@ -117,7 +143,9 @@ async function loadAdminComplaints(filterLab = 'all') {
         list.innerHTML = complaints.map(c => `
             <tr>
                 <td style="font-weight:600;">
-                    ${c.status === 'Pending' ? '<span class="new-tag">NEW</span> ' : ''}${c.complaint_id}
+                    ${c.status === 'Pending' ? '<span class="new-tag">NEW</span> ' : ''}
+                    ${c.is_escalated ? '<span class="new-tag" style="background:#ef4444; color:white;">🔥 ESCALATED</span> ' : ''}
+                    ${c.complaint_id}
                 </td>
                 <td>${c.users.name} (${c.users.scholar_id})</td>
                 <td>

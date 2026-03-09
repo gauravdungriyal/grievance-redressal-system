@@ -36,3 +36,25 @@ app.get(/.*/, (req, res) => {
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);
 });
+
+// Automated Escalation Matrix (SLA) - Runs every hour
+const supabase = require('./supabaseClient');
+setInterval(async () => {
+    try {
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+
+        const { data, error } = await supabase
+            .from('complaints')
+            .update({ is_escalated: true })
+            .is('is_escalated', false)
+            .in('status', ['Pending', 'In Progress'])
+            .lt('created_at', fortyEightHoursAgo);
+
+        if (error) throw error;
+        if (data && data.length > 0) {
+            console.log(`[SLA] Escalated ${data.length} complaints.`);
+        }
+    } catch (err) {
+        console.error('[SLA Error]:', err.message);
+    }
+}, 60 * 60 * 1000); // 1 hour

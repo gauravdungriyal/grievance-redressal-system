@@ -102,10 +102,32 @@ router.get('/my', authMiddleware, async (req, res) => {
 // @desc    Get all complaints (Admin only)
 router.get('/all', authMiddleware, adminMiddleware, async (req, res) => {
     try {
-        const { data, error } = await supabase
+        let query = supabase
             .from('complaints')
             .select('*, users!user_id(name, scholar_id)')
             .order('created_at', { ascending: false });
+
+        // Department Routing Logic
+        if (req.user.department && req.user.role !== 'superadmin') {
+            let allowedCategories = [];
+            switch (req.user.department.toLowerCase()) {
+                case 'it':
+                    allowedCategories = ['Password Reset', 'Keyboard Not Working', 'Mouse Not Working', 'PC Not Working', 'Internet Not Working'];
+                    break;
+                case 'academic':
+                    allowedCategories = ['Attendance Issue', 'Present but Marked Absent'];
+                    break;
+                case 'events':
+                    allowedCategories = ['Saturday Event Idea'];
+                    break;
+            }
+
+            if (allowedCategories.length > 0) {
+                query = query.in('category', allowedCategories);
+            }
+        }
+
+        const { data, error } = await query;
 
         if (error) throw error;
         res.json(data);
@@ -120,9 +142,15 @@ router.get('/all', authMiddleware, adminMiddleware, async (req, res) => {
 router.patch('/:id', authMiddleware, adminMiddleware, async (req, res) => {
     const { status, resolution_note, assigned_to } = req.body;
     try {
+        const updateData = { status, resolution_note, assigned_to, updated_at: new Date() };
+
+        if (status === 'Resolved') {
+            updateData.resolved_at = new Date();
+        }
+
         const { data, error } = await supabase
             .from('complaints')
-            .update({ status, resolution_note, assigned_to, updated_at: new Date() })
+            .update(updateData)
             .eq('id', req.params.id)
             .select()
             .single();

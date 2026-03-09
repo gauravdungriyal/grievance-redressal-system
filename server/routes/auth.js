@@ -32,7 +32,8 @@ router.post('/login', async (req, res) => {
             id: user.id,
             role: user.role,
             name: user.name,
-            scholar_id: user.scholar_id
+            scholar_id: user.scholar_id,
+            department: user.department
         };
 
         jwt.sign(
@@ -47,7 +48,7 @@ router.post('/login', async (req, res) => {
                     sameSite: 'strict',
                     maxAge: 24 * 60 * 60 * 1000 // 24 hours
                 });
-                res.json({ user: { id: user.id, name: user.name, role: user.role, scholar_id: user.scholar_id } });
+                res.json({ user: { id: user.id, name: user.name, role: user.role, scholar_id: user.scholar_id, department: user.department } });
             }
         );
     } catch (err) {
