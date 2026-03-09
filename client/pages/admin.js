@@ -16,6 +16,16 @@ export async function renderAdminDashboard(container) {
         </div>
 
         <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem;">
+            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                📊 Lab Comparison Analytics
+            </h3>
+            <div id="lab-analytics-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                <!-- Analytics bars will be injected here -->
+                <p style="opacity: 0.6; font-style: italic;">Loading analytics...</p>
+            </div>
+        </div>
+
+        <div class="glass" style="padding: 1.5rem; margin-bottom: 2rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 1rem;">
                 <div style="display: flex; align-items: center; gap: 1rem;">
                     <h3>Active Complaints</h3>
@@ -96,7 +106,8 @@ export async function renderAdminDashboard(container) {
 
 async function loadAdminComplaints(filterLab = 'all') {
     try {
-        let complaints = await api.complaints.getAll();
+        const allComplaints = await api.complaints.getAll();
+        let complaints = [...allComplaints];
 
         if (filterLab !== 'all') {
             complaints = complaints.filter(c => c.lab === filterLab);
@@ -118,11 +129,14 @@ async function loadAdminComplaints(filterLab = 'all') {
             </tr>
         `).join('') || '<tr><td colspan="5" style="text-align:center;">No complaints found.</td></tr>';
 
-        // Update stats
+        // Update stats (global stats should reflect filtered view or all? usually filtered view's stats are shown in the cards, or total? I'll keep them as filtered for consistency with the table, but Lab Analytics always shows all labs comparison)
         document.getElementById('stat-total').innerText = complaints.length;
         document.getElementById('stat-pending').innerText = complaints.filter(c => c.status === 'Pending').length;
         document.getElementById('stat-progress').innerText = complaints.filter(c => c.status === 'In Progress').length;
         document.getElementById('stat-resolved').innerText = complaints.filter(c => c.status === 'Resolved').length;
+
+        // Update Lab Analytics (Comparing ALL labs)
+        renderLabAnalytics(allComplaints);
 
         // Expose function globally for the onclick handler
         window.openResolveModal = (uuid, id, status, note) => {
@@ -153,4 +167,32 @@ function exportCSV() {
     downloadLink.style.display = "none";
     document.body.appendChild(downloadLink);
     downloadLink.click();
+}
+
+function renderLabAnalytics(complaints) {
+    const labs = ["BSC IT Lab", "BCA Lab", "MCA Lab"];
+    const distribution = labs.map(lab => ({
+        name: lab,
+        count: complaints.filter(c => c.lab === lab).length
+    }));
+
+    const maxCount = Math.max(...distribution.map(d => d.count), 1);
+    const container = document.getElementById('lab-analytics-container');
+
+    container.innerHTML = distribution.map(lab => {
+        const percentage = (lab.count / maxCount) * 100;
+        const color = lab.count === maxCount && lab.count > 0 ? 'var(--primary)' : 'rgba(var(--primary-rgb), 0.4)';
+
+        return `
+            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 500;">
+                    <span>${lab.name}</span>
+                    <span style="color: var(--primary);">${lab.count} Complaints</span>
+                </div>
+                <div style="width: 100%; height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
+                    <div style="width: ${percentage}%; height: 100%; background: ${color}; border-radius: 6px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px ${color}44;"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
