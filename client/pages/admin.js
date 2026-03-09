@@ -18,13 +18,24 @@ export async function renderAdminDashboard(container) {
             <div class="stat-card glass"><p>Resolved</p><div class="stat-number" id="stat-resolved">0</div></div>
         </div>
 
-        <div id="analytics-section" class="glass" style="padding: 1.5rem; margin-bottom: 2rem; display: none;">
-            <h3 style="margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                📊 Lab Comparison Analytics
-            </h3>
-            <div id="lab-analytics-container" style="display: flex; flex-direction: column; gap: 1rem;">
-                <!-- Analytics bars will be injected here -->
-                <p style="opacity: 0.6; font-style: italic;">Loading analytics...</p>
+        <div id="analytics-section" class="glass" style="padding: 2rem; margin-bottom: 2rem; display: none; overflow: hidden; position: relative;">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                <h3 style="display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                    📊 Lab Insights & Comparison
+                </h3>
+                <div style="font-size: 0.8rem; opacity: 0.6; font-weight: 500;">
+                    Real-time Data Distribution
+                </div>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1.5fr; gap: 2rem; align-items: center;">
+                <div style="position: relative; max-width: 300px; margin: auto;">
+                    <canvas id="labChart"></canvas>
+                </div>
+                <div id="lab-analytics-summary" style="display: grid; grid-template-columns: 1fr; gap: 0.75rem;">
+                    <!-- Analytics summary cards will be injected here -->
+                    <p style="opacity: 0.6; font-style: italic;">Processing insights...</p>
+                </div>
             </div>
         </div>
 
@@ -197,6 +208,8 @@ function exportCSV() {
     downloadLink.click();
 }
 
+let labChartInstance = null;
+
 function renderLabAnalytics(complaints) {
     const labs = ["BSC IT Lab", "BCA Lab", "MCA Lab"];
     const distribution = labs.map(lab => ({
@@ -204,23 +217,77 @@ function renderLabAnalytics(complaints) {
         count: complaints.filter(c => c.lab === lab).length
     }));
 
-    const maxCount = Math.max(...distribution.map(d => d.count), 1);
-    const container = document.getElementById('lab-analytics-container');
+    const total = distribution.reduce((sum, d) => sum + d.count, 0);
+    const maxCount = Math.max(...distribution.map(d => d.count), 0);
 
-    container.innerHTML = distribution.map(lab => {
-        const percentage = (lab.count / maxCount) * 100;
-        const color = lab.count === maxCount && lab.count > 0 ? 'var(--primary)' : 'rgba(var(--primary-rgb), 0.4)';
+    // Update Summary Cards
+    const summaryContainer = document.getElementById('lab-analytics-summary');
+    summaryContainer.innerHTML = distribution.map(lab => {
+        const percentage = total > 0 ? Math.round((lab.count / total) * 100) : 0;
+        const isMax = lab.count === maxCount && lab.count > 0;
 
         return `
-            <div style="display: flex; flex-direction: column; gap: 0.4rem;">
-                <div style="display: flex; justify-content: space-between; font-size: 0.9rem; font-weight: 500;">
-                    <span>${lab.name}</span>
-                    <span style="color: var(--primary);">${lab.count} Complaints</span>
+            <div class="glass" style="padding: 1rem; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 4px solid ${isMax ? 'var(--primary)' : 'transparent'};">
+                <div>
+                    <div style="font-size: 0.8rem; opacity: 0.6; font-weight: 600;">${lab.name.toUpperCase()}</div>
+                    <div style="font-size: 1.25rem; font-weight: 700; color: ${isMax ? 'var(--primary)' : 'inherit'};">${lab.count}</div>
                 </div>
-                <div style="width: 100%; height: 12px; background: rgba(255,255,255,0.05); border-radius: 6px; overflow: hidden; border: 1px solid rgba(255,255,255,0.1);">
-                    <div style="width: ${percentage}%; height: 100%; background: ${color}; border-radius: 6px; transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1); box-shadow: 0 0 10px ${color}44;"></div>
+                <div style="text-align: right;">
+                    <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">${percentage}%</div>
+                    <div style="font-size: 0.7rem; opacity: 0.5;">of total</div>
                 </div>
             </div>
         `;
     }).join('');
+
+    // Initialize/Update Chart.js
+    const ctx = document.getElementById('labChart');
+    if (!ctx) return;
+
+    if (labChartInstance) {
+        labChartInstance.destroy();
+    }
+
+    const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim() || '#4f46e5';
+
+    labChartInstance = new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+            labels: labs,
+            datasets: [{
+                data: distribution.map(d => d.count),
+                backgroundColor: [
+                    'rgba(79, 70, 229, 0.8)',
+                    'rgba(147, 51, 234, 0.8)',
+                    'rgba(236, 72, 153, 0.8)'
+                ],
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                borderWidth: 2,
+                hoverOffset: 15,
+                borderRadius: 4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                    padding: 12,
+                    titleFont: { size: 14, weight: '600' },
+                    bodyFont: { size: 13 },
+                    displayColors: false,
+                    callbacks: {
+                        label: (context) => ` ${context.raw} Complaints`
+                    }
+                }
+            },
+            cutout: '70%',
+            animation: {
+                animateScale: true,
+                animateRotate: true
+            }
+        }
+    });
 }
