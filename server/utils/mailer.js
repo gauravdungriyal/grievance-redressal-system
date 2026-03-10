@@ -1,43 +1,35 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 
-// Initialize transporter
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_PORT == 465, // true for 465, false for 587
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    },
-    // Force IPv4 to avoid ENETUNREACH errors on some networks (like Jio/Airtel/University)
-    family: 4,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
-});
+// Initialize Resend
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Base helper to send email
+ * Base helper to send email via Resend (HTTP)
  */
 const sendEmail = async ({ to, cc, subject, html, fromName }) => {
+    const fromAddress = process.env.EMAIL_FROM || 'onboarding@resend.dev'; // Resend default for unverified domains
     const displayName = fromName || process.env.FROM_NAME || 'Grievance System';
-    const mailOptions = {
-        from: `"${displayName}" <${process.env.SMTP_USER}>`,
-        to,
-        cc,
-        subject,
-        html
-    };
 
-    console.log(`[MAILING] Attempting to send email. To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
+    console.log(`[MAILING] Attempting to send email via Resend. To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
 
     try {
-        const info = await transporter.sendMail(mailOptions);
-        console.log('[MAILING] Success: ' + info.response);
-        return info;
+        const { data, error } = await resend.emails.send({
+            from: `"${displayName}" <${fromAddress}>`,
+            to: Array.isArray(to) ? to : to.split(','),
+            cc: cc ? (Array.isArray(cc) ? cc : cc.split(',')) : undefined,
+            subject,
+            html,
+        });
+
+        if (error) {
+            console.error('[MAILING] Resend API ERROR:', error);
+            return null;
+        }
+
+        console.log('[MAILING] Success! ID:', data.id);
+        return data;
     } catch (error) {
-        console.error('[MAILING] ERROR sending email:', error);
-        // We don't throw here to avoid breaking the main request flow
+        console.error('[MAILING] UNEXPECTED ERROR sending email:', error);
         return null;
     }
 };
