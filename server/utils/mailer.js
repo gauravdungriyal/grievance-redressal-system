@@ -27,7 +27,16 @@ const getTransporter = async () => {
         console.warn(`[MAILING] DNS Resolve4 failed for ${host}, falling back to hostname.`, dnsErr.message);
     }
 
-    const port = parseInt(process.env.SMTP_PORT) || 465;
+    let port = parseInt(process.env.SMTP_PORT) || 465;
+
+    // RENDER-PROOF FORCE:
+    // If we are on Render, Port 587 is almost always blocked. 
+    // If the dashboard is forcing 587, we override it here to 465.
+    if (process.env.RENDER || port === 587) {
+        console.log(`[MAILING] Render environment detected or Port 587 provided. FORCING Port 465 for reliability.`);
+        port = 465;
+    }
+
     const isSecure = (port === 465);
 
     transporter = nodemailer.createTransport({
