@@ -1,4 +1,5 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
 
 // Initialize transporter
 const transporter = nodemailer.createTransport({
@@ -9,11 +10,17 @@ const transporter = nodemailer.createTransport({
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
-    // Force IPv4 to avoid ENETUNREACH errors on some networks
+    // Force IPv4 to avoid ENETUNREACH errors on some networks (like Render)
+    // Some Node environments ignore the 'family: 4' setting, so we use a custom lookup
+    lookup: (hostname, options, callback) => {
+        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+            callback(err, address, family);
+        });
+    },
     family: 4,
-    connectionTimeout: 10000,
-    greetingTimeout: 10000,
-    socketTimeout: 10000
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000
 });
 
 /**
