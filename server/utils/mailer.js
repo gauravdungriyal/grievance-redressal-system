@@ -1,6 +1,11 @@
 const nodemailer = require('nodemailer');
 const dns = require('dns');
 
+// Force IPv4 globally for this module
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 // Initialize transporter
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',

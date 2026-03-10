@@ -1,4 +1,11 @@
 require('dotenv').config();
+const dns = require('dns');
+
+// Force IPv4 globally to resolve ENETUNREACH issues on some networks (like Render)
+if (dns.setDefaultResultOrder) {
+    dns.setDefaultResultOrder('ipv4first');
+}
+
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
