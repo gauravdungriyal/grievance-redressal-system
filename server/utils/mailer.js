@@ -9,23 +9,25 @@ if (dns.setDefaultResultOrder) {
 // Initialize transporter
 const transporter = nodemailer.createTransport({
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 587,
-    secure: process.env.SMTP_PORT == 465, // true for 465, false for 587
+    port: parseInt(process.env.SMTP_PORT) || 465,
+    secure: (process.env.SMTP_PORT == 465 || !process.env.SMTP_PORT), // true for 465
     auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS
     },
     // Force IPv4 to avoid ENETUNREACH errors on some networks (like Render)
-    // Some Node environments ignore the 'family: 4' setting, so we use a custom lookup
     lookup: (hostname, options, callback) => {
         dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+            if (address) {
+                console.log(`[MAILING] DNS Lookup: ${hostname} -> ${address} (IPv${family})`);
+            }
             callback(err, address, family);
         });
     },
     family: 4,
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000
+    connectionTimeout: 30000,
+    greetingTimeout: 30000,
+    socketTimeout: 30000
 });
 
 /**
@@ -33,6 +35,7 @@ const transporter = nodemailer.createTransport({
  */
 const sendEmail = async ({ to, cc, subject, html, fromName }) => {
     const displayName = fromName || process.env.FROM_NAME || 'Grievance System';
+    const portUsed = process.env.SMTP_PORT || 465;
     const mailOptions = {
         from: `"${displayName}" <${process.env.SMTP_USER}>`,
         to,
@@ -41,7 +44,7 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
         html
     };
 
-    console.log(`[MAILING] Attempting to send email via SMTP. To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
+    console.log(`[MAILING] Attempting to send email via SMTP (Port ${portUsed}). To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
 
     try {
         const info = await transporter.sendMail(mailOptions);
