@@ -29,12 +29,14 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
         html
     };
 
+    console.log(`[MAILING] Attempting to send email. To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
+
     try {
         const info = await transporter.sendMail(mailOptions);
-        console.log('Email sent: ' + info.response);
+        console.log('[MAILING] Success: ' + info.response);
         return info;
     } catch (error) {
-        console.error('Error sending email:', error);
+        console.error('[MAILING] ERROR sending email:', error);
         // We don't throw here to avoid breaking the main request flow
         return null;
     }
@@ -63,7 +65,13 @@ const getCourseCoordEmail = (className) => {
 
     if (program && semester) {
         const envKey = `COORD_${program}_${semester}`;
-        return process.env[envKey] || process.env.COURSE_COORD_EMAIL;
+        const email = process.env[envKey];
+        if (email) {
+            console.log(`[MAILING] Dynamic Coordinator Found: ${program} ${semester} -> ${email}`);
+            return email;
+        } else {
+            console.log(`[MAILING] Dynamic Coordinator NOT SET for ${program} ${semester}. Using fallback.`);
+        }
     }
 
     return process.env.COURSE_COORD_EMAIL;
@@ -134,6 +142,9 @@ const notifyNewComplaint = async (student, complaint) => {
     const labCoord = getLabCoordEmail(complaint.lab);
     const courseCoord = getCourseCoordEmail(student.class_name);
 
+    // CC the student so they know it was received
+    const ccList = courseCoord ? `${courseCoord},${student.email}` : student.email;
+
     const html = emailTemplate(
         'New Grievance Submitted',
         `
@@ -154,7 +165,7 @@ const notifyNewComplaint = async (student, complaint) => {
 
     return sendEmail({
         to: labCoord,
-        cc: courseCoord,
+        cc: ccList,
         subject: `New Grievance: ${complaint.complaint_id} - ${complaint.title}`,
         html,
         fromName: 'Grievance System'

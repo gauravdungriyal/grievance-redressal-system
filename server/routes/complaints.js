@@ -53,7 +53,7 @@ router.post('/', authMiddleware, async (req, res) => {
         if (error) throw error;
 
         // Send Email Notification via Google SMTP (New)
-        // We do this asynchronously without 'await' to keep the response fast
+        // We do this asynchronously without 'await' to the main response to keep it fast
         (async () => {
             try {
                 const { data: userData } = await supabase
@@ -63,10 +63,13 @@ router.post('/', authMiddleware, async (req, res) => {
                     .single();
 
                 if (userData) {
-                    mailer.notifyNewComplaint(userData, data);
+                    console.log(`[MAILING] Initiating notification for complaint ${data.complaint_id} by student ${userData.name}`);
+                    await mailer.notifyNewComplaint(userData, data);
+                } else {
+                    console.error('[MAILING] User data not found for ID:', req.user.id);
                 }
             } catch (mailErr) {
-                console.error('Mailing failed in POST /:', mailErr);
+                console.error('[MAILING] BACKGROUND FAILURE in POST /:', mailErr);
             }
         })();
 
