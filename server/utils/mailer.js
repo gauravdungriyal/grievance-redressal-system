@@ -6,29 +6,57 @@ if (dns.setDefaultResultOrder) {
     dns.setDefaultResultOrder('ipv4first');
 }
 
-// Initialize transporter
-const transporter = nodemailer.createTransport({
-    host: process.env.SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(process.env.SMTP_PORT) || 465,
-    secure: (process.env.SMTP_PORT == 465 || !process.env.SMTP_PORT), // true for 465
-    auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS
-    },
-    // Force IPv4 to avoid ENETUNREACH errors on some networks (like Render)
-    lookup: (hostname, options, callback) => {
-        dns.lookup(hostname, { family: 4 }, (err, address, family) => {
-            if (address) {
-                console.log(`[MAILING] DNS Lookup: ${hostname} -> ${address} (IPv${family})`);
-            }
-            callback(err, address, family);
-        });
-    },
-    family: 4,
-    connectionTimeout: 30000,
-    greetingTimeout: 30000,
-    socketTimeout: 30000
-});
+// Initialize transporter (Lazy initialization to allow for async IP resolution)
+let transporter = null;
+
+const getTransporter = async () => {
+    if (transporter) return transporter;
+
+    const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+    let resolvedHost = host;
+
+    // Aggressive IPv4 Force: Resolve smtp.gmail.com to a direct IPv4 address
+    // This bypasses DNS-level IPv6 preference in Node/Cloud environments
+    try {
+        const addresses = await dns.promises.resolve4(host);
+        if (addresses && addresses.length > 0) {
+            resolvedHost = addresses[0];
+            console.log(`[MAILING] Aggressive Fix: Resolved ${host} to direct IPv4 ${resolvedHost}`);
+        }
+    } catch (dnsErr) {
+        console.warn(`[MAILING] DNS Resolve4 failed for ${host}, falling back to hostname.`, dnsErr.message);
+    }
+
+    const port = parseInt(process.env.SMTP_PORT) || 465;
+    const isSecure = (port === 465);
+
+    transporter = nodemailer.createTransport({
+        host: resolvedHost,
+        port: port,
+        secure: isSecure,
+        auth: {
+            user: process.env.SMTP_USER,
+            pass: process.env.SMTP_PASS
+        },
+        // Still provide lookup as a fallback
+        lookup: (hostname, options, callback) => {
+            dns.lookup(hostname, { family: 4 }, (err, address, family) => {
+                callback(err, address, family);
+            });
+        },
+        family: 4,
+        connectionTimeout: 30000,
+        greetingTimeout: 30000,
+        socketTimeout: 30000,
+        tls: {
+            // Necessary because we are connecting via IP, which might not match the cert common name
+            servername: host,
+            rejectUnauthorized: false // Temporary debug measure for Render
+        }
+    });
+
+    return transporter;
+};
 
 /**
  * Base helper to send email via SMTP
@@ -47,7 +75,8 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
     console.log(`[MAILING] Attempting to send email via SMTP (Port ${portUsed}). To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
 
     try {
-        const info = await transporter.sendMail(mailOptions);
+        const mailTransporter = await getTransporter();
+        const info = await mailTransporter.sendMail(mailOptions);
         console.log('[MAILING] Success: ' + info.response);
         return info;
     } catch (error) {
