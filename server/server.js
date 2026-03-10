@@ -15,6 +15,28 @@ const complaintRoutes = require('./routes/complaints');
 const path = require('path');
 
 const app = express();
+const net = require('net');
+app.get('/test-network', async (req, res) => {
+    const targets = [
+        { host: 'smtp.gmail.com', port: 587 },
+        { host: 'smtp.gmail.com', port: 465 },
+        { host: 'google.com', port: 80 }
+    ];
+    let results = [];
+    for (const target of targets) {
+        const result = await new Promise((resolve) => {
+            const socket = new net.Socket();
+            socket.setTimeout(3000);
+            socket.on('connect', () => { socket.destroy(); resolve('SUCCESS'); });
+            socket.on('timeout', () => { socket.destroy(); resolve('TIMEOUT'); });
+            socket.on('error', (err) => { socket.destroy(); resolve(`ERROR: ${err.message}`); });
+            socket.connect(target.port, target.host);
+        });
+        results.push(`${target.host}:${target.port} -> ${result}`);
+    }
+    res.send(results.join('<br>'));
+});
+
 const PORT = process.env.PORT || 5000;
 
 // Middleware
