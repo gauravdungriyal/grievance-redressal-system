@@ -41,14 +41,48 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
 };
 
 /**
+ * Helper: Get Course Coordinator Email based on class_name
+ */
+const getCourseCoordEmail = (className) => {
+    if (!className) return process.env.COURSE_COORD_EMAIL;
+
+    const normalized = className.toUpperCase();
+
+    // Logic: Map program and semester to env variables
+    // Format usually: MCA-DS-SEM-II or BCA-5.5-SEM-VI or BIT-5.5-SEM-VI
+
+    let program = '';
+    if (normalized.includes('MCA')) program = 'MCA';
+    else if (normalized.includes('BCA')) program = 'BCA';
+    else if (normalized.includes('BIT') || normalized.includes('BSC-IT')) program = 'BIT';
+
+    let semester = '';
+    if (normalized.includes('SEM-II')) semester = 'II';
+    else if (normalized.includes('SEM-IV')) semester = 'IV';
+    else if (normalized.includes('SEM-VI')) semester = 'VI';
+
+    if (program && semester) {
+        const envKey = `COORD_${program}_${semester}`;
+        return process.env[envKey] || process.env.COURSE_COORD_EMAIL;
+    }
+
+    return process.env.COURSE_COORD_EMAIL;
+};
+
+/**
  * Template Helper: Get Lab Coordinator Email
  */
 const getLabCoordEmail = (lab) => {
     switch (lab) {
-        case 'BSC IT Lab': return process.env.LAB_COORD_BSCIT;
-        case 'BCA Lab': return process.env.LAB_COORD_BCA;
-        case 'MCA Lab': return process.env.LAB_COORD_MCA;
-        default: return process.env.COURSE_COORD_EMAIL; // Fallback
+        case 'BSC IT Lab':
+        case 'BIT Lab':
+            return process.env.LAB_COORD_BSCIT;
+        case 'BCA Lab':
+            return process.env.LAB_COORD_BCA;
+        case 'MCA Lab':
+            return process.env.LAB_COORD_MCA;
+        default:
+            return process.env.COURSE_COORD_EMAIL; // Fallback
     }
 };
 
@@ -98,7 +132,7 @@ const emailTemplate = (title, content, actionLabel, actionUrl) => `
  */
 const notifyNewComplaint = async (student, complaint) => {
     const labCoord = getLabCoordEmail(complaint.lab);
-    const courseCoord = process.env.COURSE_COORD_EMAIL;
+    const courseCoord = getCourseCoordEmail(student.class_name);
 
     const html = emailTemplate(
         'New Grievance Submitted',
@@ -164,7 +198,7 @@ const notifyApproval = async (student, complaint) => {
  * 3. Notify Student of Declined Complaint
  */
 const notifyDecline = async (student, complaint, reason) => {
-    const courseCoord = process.env.COURSE_COORD_EMAIL;
+    const courseCoord = getCourseCoordEmail(student.class_name);
 
     const html = emailTemplate(
         'Grievance Status Update: Rejected',
@@ -195,7 +229,7 @@ const notifyDecline = async (student, complaint, reason) => {
  * 4. Notify Student of Resolution
  */
 const notifyResolution = async (student, complaint) => {
-    const courseCoord = process.env.COURSE_COORD_EMAIL;
+    const courseCoord = getCourseCoordEmail(student.class_name);
     const labCoord = getLabCoordEmail(complaint.lab);
 
     const html = emailTemplate(
