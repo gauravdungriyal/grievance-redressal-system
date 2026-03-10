@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const supabase = require('../supabaseClient');
 const { authMiddleware, adminMiddleware } = require('../middleware/authMiddleware');
+const mailer = require('../utils/mailer');
 
 
 // Helper to generate complaint ID
@@ -51,27 +52,23 @@ router.post('/', authMiddleware, async (req, res) => {
 
         if (error) throw error;
 
-        // Send notification via Formspree
-        const formId = process.env.FORMSPREE_FORM_ID;
-        if (formId && formId !== 'YOUR_FORM_ID_HERE') {
-            fetch(`https://formspree.io/f/${formId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify({
-                    subject: `New Complaint: ${data.complaint_id}`,
-                    complaint_id: data.complaint_id,
-                    category: data.category,
-                    lab: data.lab || 'N/A',
-                    pc_number: data.pc_number || 'N/A',
-                    title: data.title,
-                    description: data.description,
-                    submitted_by_id: req.user.id
-                })
-            }).catch(err => console.error('Formspree notification failed:', err));
-        }
+        // Send Email Notification via Google SMTP (New)
+        // We do this asynchronously without 'await' to keep the response fast
+        (async () => {
+            try {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', req.user.id)
+                    .single();
+
+                if (userData) {
+                    mailer.notifyNewComplaint(userData, data);
+                }
+            } catch (mailErr) {
+                console.error('Mailing failed in POST /:', mailErr);
+            }
+        })();
 
         res.status(201).json(data);
     } catch (err) {
@@ -156,6 +153,32 @@ router.patch('/:id', authMiddleware, adminMiddleware, async (req, res) => {
             .single();
 
         if (error) throw error;
+
+        // Send Email Notifications based on Status Change
+        (async () => {
+            try {
+                const { data: userData } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', data.user_id)
+                    .single();
+
+                if (!userData) return;
+
+                if (status === 'In Progress') {
+                    // Approved by Lab Coordinator
+                    mailer.notifyApproval(userData, data);
+                } else if (status === 'Rejected') {
+                    // Declined by Lab Coordinator
+                    mailer.notifyDecline(userData, data, resolution_note);
+                } else if (status === 'Resolved') {
+                    // Resolved by IT Support
+                    mailer.notifyResolution(userData, data);
+                }
+            } catch (mailErr) {
+                console.error('Mailing failed in PATCH /:id:', mailErr);
+            }
+        })();
 
         res.json(data);
     } catch (err) {

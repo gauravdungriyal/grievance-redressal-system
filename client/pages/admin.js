@@ -234,7 +234,6 @@ function renderLabAnalytics(complaints) {
                 </div>
                 <div style="text-align: right;">
                     <div style="font-size: 0.85rem; font-weight: 600; color: var(--primary);">${percentage}%</div>
-                    <div style="font-size: 0.7rem; opacity: 0.5;">of total</div>
                 </div>
             </div>
         `;

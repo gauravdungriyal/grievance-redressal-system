@@ -1,0 +1,232 @@
+const nodemailer = require('nodemailer');
+
+// Initialize transporter
+const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(process.env.SMTP_PORT) || 587,
+    secure: process.env.SMTP_PORT == 465, // true for 465, false for 587
+    auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS
+    },
+    // Force IPv4 to avoid ENETUNREACH errors on some networks (like Jio/Airtel/University)
+    family: 4,
+    connectionTimeout: 10000,
+    greetingTimeout: 10000,
+    socketTimeout: 10000
+});
+
+/**
+ * Base helper to send email
+ */
+const sendEmail = async ({ to, cc, subject, html, fromName }) => {
+    const displayName = fromName || process.env.FROM_NAME || 'Grievance System';
+    const mailOptions = {
+        from: `"${displayName}" <${process.env.SMTP_USER}>`,
+        to,
+        cc,
+        subject,
+        html
+    };
+
+    try {
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent: ' + info.response);
+        return info;
+    } catch (error) {
+        console.error('Error sending email:', error);
+        // We don't throw here to avoid breaking the main request flow
+        return null;
+    }
+};
+
+/**
+ * Template Helper: Get Lab Coordinator Email
+ */
+const getLabCoordEmail = (lab) => {
+    switch (lab) {
+        case 'BSC IT Lab': return process.env.LAB_COORD_BSCIT;
+        case 'BCA Lab': return process.env.LAB_COORD_BCA;
+        case 'MCA Lab': return process.env.LAB_COORD_MCA;
+        default: return process.env.COURSE_COORD_EMAIL; // Fallback
+    }
+};
+
+/**
+ * HTML Template Wrapper
+ */
+const emailTemplate = (title, content, actionLabel, actionUrl) => `
+<!DOCTYPE html>
+<html>
+<head>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
+        .container { max-width: 600px; margin: 20px auto; border: 1px solid #e0e0e0; border-radius: 8px; overflow: hidden; }
+        .header { background: #4f46e5; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; }
+        .footer { background: #f9fafb; padding: 20px; text-align: center; font-size: 0.8rem; color: #6b7280; }
+        .button { background: #4f46e5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block; margin-top: 20px; font-weight: 600; }
+        .status-badge { display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; text-transform: uppercase; }
+        .status-pending { background: #fef3c7; color: #92400e; }
+        .status-inprogress { background: #dcfce7; color: #166534; }
+        .status-resolved { background: #dcfce7; color: #166534; }
+        .status-rejected { background: #fee2e2; color: #991b1b; }
+        .details { background: #f3f4f6; padding: 15px; border-radius: 6px; margin: 20px 0; }
+        .details b { color: #4b5563; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>${title}</h1>
+        </div>
+        <div class="content">
+            ${content}
+            ${actionLabel && actionUrl ? `<div style="text-align: center;"><a href="${actionUrl}" class="button">${actionLabel}</a></div>` : ''}
+        </div>
+        <div class="footer">
+            <p>This is an automated notification from the Grievance Redressal System.</p>
+            <p>&copy; ${new Date().getFullYear()} CS Department</p>
+        </div>
+    </div>
+</body>
+</html>
+`;
+
+/**
+ * 1. Notify Lab Coordinator of New Complaint
+ */
+const notifyNewComplaint = async (student, complaint) => {
+    const labCoord = getLabCoordEmail(complaint.lab);
+    const courseCoord = process.env.COURSE_COORD_EMAIL;
+
+    const html = emailTemplate(
+        'New Grievance Submitted',
+        `
+        <p>Hello Coordinator,</p>
+        <p>A new grievance has been submitted by <b>${student.name}</b> (${student.scholar_id}).</p>
+        <div class="details">
+            <p><b>Complaint ID:</b> ${complaint.complaint_id}</p>
+            <p><b>Category:</b> ${complaint.category}</p>
+            <p><b>Lab/Location:</b> ${complaint.lab || 'N/A'}</p>
+            <p><b>PC Number:</b> ${complaint.pc_number || 'N/A'}</p>
+            <p><b>Title:</b> ${complaint.title}</p>
+        </div>
+        <p>Please review and take appropriate action.</p>
+        `,
+        'Manage Grievance',
+        `${process.env.APP_URL || 'http://localhost:5000'}/admin`
+    );
+
+    return sendEmail({
+        to: labCoord,
+        cc: courseCoord,
+        subject: `New Grievance: ${complaint.complaint_id} - ${complaint.title}`,
+        html,
+        fromName: 'Grievance System'
+    });
+};
+
+/**
+ * 2. Notify IT Support of Approved Complaint
+ */
+const notifyApproval = async (student, complaint) => {
+    const itSupport = process.env.IT_SUPPORT_EMAIL;
+
+    const html = emailTemplate(
+        'Action Required: Approved Grievance',
+        `
+        <p>Hello IT Support Team,</p>
+        <p>A grievance has been approved by the Lab Coordinator and requires your attention.</p>
+        <div class="details">
+            <p><b>Complaint ID:</b> ${complaint.complaint_id}</p>
+            <p><b>Student:</b> ${student.name} (${student.scholar_id})</p>
+            <p><b>Lab/Location:</b> ${complaint.lab || 'N/A'}</p>
+            <p><b>PC Number:</b> ${complaint.pc_number || 'N/A'}</p>
+            <p><b>Issue:</b> ${complaint.title}</p>
+            <p><b>Details:</b> ${complaint.description}</p>
+        </div>
+        <p>Please resolve the issue as soon as possible.</p>
+        `,
+        'View Dashboard',
+        `${process.env.APP_URL || 'http://localhost:5000'}/admin`
+    );
+
+    return sendEmail({
+        to: itSupport,
+        subject: `IT SUPPPORT: Task Assigned - ${complaint.complaint_id}`,
+        html,
+        fromName: 'Lab Coordinator'
+    });
+};
+
+/**
+ * 3. Notify Student of Declined Complaint
+ */
+const notifyDecline = async (student, complaint, reason) => {
+    const courseCoord = process.env.COURSE_COORD_EMAIL;
+
+    const html = emailTemplate(
+        'Grievance Status Update: Rejected',
+        `
+        <p>Hello ${student.name},</p>
+        <p>Your grievance has been reviewed by the Lab Coordinator and was unfortunately <b>rejected</b>.</p>
+        <div class="details">
+            <p><b>Complaint ID:</b> ${complaint.complaint_id}</p>
+            <p><b>Status:</b> <span class="status-badge status-rejected">Rejected</span></p>
+            <p><b>Reason for Rejection:</b> ${reason || 'No specific reason provided.'}</p>
+        </div>
+        <p>If you have questions, please contact your Lab Coordinator or Course Coordinator.</p>
+        `,
+        'View My Dashboard',
+        `${process.env.APP_URL || 'http://localhost:5000'}`
+    );
+
+    return sendEmail({
+        to: student.email,
+        cc: courseCoord,
+        subject: `Update on your Grievance: ${complaint.complaint_id}`,
+        html,
+        fromName: 'Lab Coordinator'
+    });
+};
+
+/**
+ * 4. Notify Student of Resolution
+ */
+const notifyResolution = async (student, complaint) => {
+    const courseCoord = process.env.COURSE_COORD_EMAIL;
+    const labCoord = getLabCoordEmail(complaint.lab);
+
+    const html = emailTemplate(
+        'Grievance Resolved! 🎉',
+        `
+        <p>Hello ${student.name},</p>
+        <p>Good news! Your grievance has been marked as <b>Resolved</b> by the IT Support team.</p>
+        <div class="details">
+            <p><b>Complaint ID:</b> ${complaint.complaint_id}</p>
+            <p><b>Issue:</b> ${complaint.title}</p>
+            <p><b>Status:</b> <span class="status-badge status-resolved">Resolved</span></p>
+            <p><b>Resolution Note:</b> ${complaint.resolution_note || 'Issue fixed.'}</p>
+        </div>
+        <p>We hope the service was satisfactory.</p>
+        `,
+        'Check Dashboard',
+        `${process.env.APP_URL || 'http://localhost:5000'}`
+    );
+
+    return sendEmail({
+        to: student.email,
+        cc: `${courseCoord},${labCoord}`,
+        subject: `Resolved: Your Grievance ${complaint.complaint_id}`,
+        html,
+        fromName: 'IT Support Team'
+    });
+};
+
+module.exports = {
+    notifyNewComplaint,
+    notifyApproval,
+    notifyDecline,
+    notifyResolution
+};
