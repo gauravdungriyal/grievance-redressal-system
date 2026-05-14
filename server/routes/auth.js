@@ -41,7 +41,11 @@ router.post('/login', async (req, res) => {
             process.env.JWT_SECRET,
             { expiresIn: '24h' },
             (err, token) => {
-                if (err) throw err;
+                if (err) {
+                    console.error('[Login Error] JWT signing failed:', err.message);
+                    return res.status(500).json({ message: 'Error generating security token' });
+                }
+                
                 res.cookie('token', token, {
                     httpOnly: true,
                     secure: process.env.NODE_ENV === 'production',
@@ -52,8 +56,9 @@ router.post('/login', async (req, res) => {
             }
         );
     } catch (err) {
-        console.error(err.message);
-        res.status(500).send('Server error');
+        console.error('[Login Error] Unexpected crash during login sequence:', err.message);
+        console.error(err.stack);
+        res.status(500).json({ message: 'Internal server error during login' });
     }
 });
 

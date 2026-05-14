@@ -1,4 +1,14 @@
-const API_BASE = 'https://grievance-redressal-system-udzc.onrender.com/api';
+const getApiBase = () => {
+    const { hostname, protocol, port } = window.location;
+    // If running on localhost (any port), or if the server is serving the client directly
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//${hostname}:5000/api`;
+    }
+    // Fallback for production or relative paths
+    return '/api';
+};
+
+const API_BASE = getApiBase();
 
 export const api = {
     async fetch(endpoint, options = {}) {

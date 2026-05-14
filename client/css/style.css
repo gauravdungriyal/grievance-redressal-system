@@ -35,12 +35,14 @@ body.dark-mode {
 
 #app {
     display: flex;
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
 }
 
 /* Sidebar Styling */
 .sidebar {
     width: 280px;
+    height: 100vh;
     background: var(--card-light);
     backdrop-filter: blur(10px);
     border-right: 1px solid var(--border-light);
@@ -49,6 +51,7 @@ body.dark-mode {
     flex-direction: column;
     justify-content: space-between;
     transition: var(--transition);
+    overflow-y: auto;
 }
 
 .dark-mode .sidebar {
@@ -94,6 +97,7 @@ body.dark-mode {
 .main-content {
     flex-grow: 1;
     padding: 2rem;
+    height: 100vh;
     overflow-y: auto;
 }
 

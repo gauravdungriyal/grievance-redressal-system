@@ -15,7 +15,8 @@ async function testMailer() {
     const dummyStudent = {
         name: 'Test Student',
         scholar_id: 'TEST001',
-        email: process.env.SMTP_USER // Send to self for testing
+        class_name: 'BCA-5.5-SEM-VI', // Added for testing routing
+        email: process.env.SMTP_USER // CC self
     };
 
     const dummyComplaint = {

@@ -17,6 +17,7 @@ const getTransporter = async () => {
 
     // Aggressive IPv4 Force: Resolve smtp.gmail.com to a direct IPv4 address
     // This bypasses DNS-level IPv6 preference in Node/Cloud environments
+    /* 
     try {
         const addresses = await dns.promises.resolve4(host);
         if (addresses && addresses.length > 0) {
@@ -26,14 +27,13 @@ const getTransporter = async () => {
     } catch (dnsErr) {
         console.warn(`[MAILING] DNS Resolve4 failed for ${host}, falling back to hostname.`, dnsErr.message);
     }
+    */
 
     let port = parseInt(process.env.SMTP_PORT) || 465;
 
-    // RENDER-PROOF FORCE:
-    // If we are on Render, Port 587 is almost always blocked. 
-    // If the dashboard is forcing 587, we override it here to 465.
-    if (process.env.RENDER || port === 587) {
-        console.log(`[MAILING] Render environment detected or Port 587 provided. FORCING Port 465 for reliability.`);
+    // Only force 465 on Render, otherwise allow the port specified in .env
+    if (process.env.RENDER && port === 587) {
+        console.log(`[MAILING] Render environment detected. FORCING Port 465 for reliability.`);
         port = 465;
     }
 
@@ -81,15 +81,25 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
         html
     };
 
-    console.log(`[MAILING] Attempting to send email via SMTP (Port ${portUsed}). To: ${to}, CC: ${cc || 'none'}, Subject: ${subject}`);
+    const timestamp = new Date().toLocaleString();
+    console.log(`\x1b[34m[${timestamp}] [MAILING]\x1b[0m Attempting to send email...`);
+    console.log(`\x1b[34m[MAILING]\x1b[0m From: "${displayName}" <${process.env.SMTP_USER}>`);
+    console.log(`\x1b[34m[MAILING]\x1b[0m To: ${to}`);
+    if (cc) console.log(`\x1b[34m[MAILING]\x1b[0m CC: ${cc}`);
+    console.log(`\x1b[34m[MAILING]\x1b[0m Subject: ${subject}`);
 
     try {
         const mailTransporter = await getTransporter();
         const info = await mailTransporter.sendMail(mailOptions);
-        console.log('[MAILING] Success: ' + info.response);
+        console.log(`\x1b[32m[MAILING] SUCCESS:\x1b[0m Email sent to ${to}. Response: ${info.response}`);
         return info;
     } catch (error) {
-        console.error('[MAILING] ERROR sending email:', error);
+        console.error(`\x1b[31m[MAILING] ERROR:\x1b[0m Failed to send email to ${to}:`, error.message);
+        if (error.code === 'EENVELOPE') {
+            console.error(`\x1b[31m[MAILING] TIP:\x1b[0m Check if the recipient email address is valid.`);
+        } else if (error.code === 'ECONNREFUSED' || error.code === 'ETIMEDOUT') {
+            console.error(`\x1b[31m[MAILING] TIP:\x1b[0m SMTP server unreachable. Check HOST/PORT and network/firewall.`);
+        }
         return null;
     }
 };
@@ -100,29 +110,41 @@ const sendEmail = async ({ to, cc, subject, html, fromName }) => {
 const getCourseCoordEmail = (className) => {
     if (!className) return process.env.COURSE_COORD_EMAIL;
 
-    const normalized = className.toUpperCase();
+    const normalized = className.toUpperCase().replace(/\s+/g, '-');
+    console.log(`[MAILING] Resolving coordinator for class: ${normalized}`);
 
-    // Logic: Map program and semester to env variables
-    // Format usually: MCA-DS-SEM-II or BCA-5.5-SEM-VI or BIT-5.5-SEM-VI
+    // 1. Try Exact Match (e.g., MCA-DS-SEM-II or BCA-5.5-SEM-VI)
+    if (process.env[normalized]) {
+        console.log(`[MAILING] Exact match found in .env: ${normalized}`);
+        return process.env[normalized];
+    }
 
+    // 2. Try with COORD_ prefix as fallback
+    if (process.env[`COORD_${normalized}`]) {
+        return process.env[`COORD_${normalized}`];
+    }
+
+    // 3. Fallback to robust parsing for older or slightly different formats
     let program = '';
-    if (normalized.includes('MCA')) program = 'MCA';
-    else if (normalized.includes('BCA')) program = 'BCA';
-    else if (normalized.includes('BIT') || normalized.includes('BSC-IT')) program = 'BIT';
+    if (/\bMCA\b/.test(normalized)) program = 'MCA';
+    else if (/\bBCA\b/.test(normalized)) program = 'BCA';
+    else if (/\bBIT\b|\bBS?C\s*-?\s*IT\b|\bB\.?\s*S\.?\s*C\.?\s*IT\b/.test(normalized)) program = 'BIT';
 
     let semester = '';
-    if (normalized.includes('SEM-II')) semester = 'II';
-    else if (normalized.includes('SEM-IV')) semester = 'IV';
-    else if (normalized.includes('SEM-VI')) semester = 'VI';
+    const semMatch = normalized.match(/SEM\s*-?\s*([IVX0-9]+)/);
+    if (semMatch) {
+        let val = semMatch[1];
+        if (val === '2' || val === 'II') semester = 'II';
+        else if (val === '4' || val === 'IV') semester = 'IV';
+        else if (val === '6' || val === 'VI') semester = 'VI';
+    }
 
     if (program && semester) {
         const envKey = `COORD_${program}_${semester}`;
         const email = process.env[envKey];
         if (email) {
-            console.log(`[MAILING] Dynamic Coordinator Found: ${program} ${semester} -> ${email}`);
+            console.log(`[MAILING] Regex Match Found: ${program} ${semester} -> ${email}`);
             return email;
-        } else {
-            console.log(`[MAILING] Dynamic Coordinator NOT SET for ${program} ${semester}. Using fallback.`);
         }
     }
 
@@ -133,10 +155,14 @@ const getCourseCoordEmail = (className) => {
  * Template Helper: Get Lab Coordinator Email
  */
 const getLabCoordEmail = (lab) => {
+    const normalizedLab = lab ? lab.toUpperCase().replace(/\s+/g, '-') : '';
+    
+    // Check if key exists in .env (e.g., LAB_COORD_BSC-IT)
+    if (lab === 'BSC IT Lab' || lab === 'BIT Lab' || normalizedLab.includes('BSC-IT') || normalizedLab.includes('BIT')) {
+        return process.env['LAB_COORD_BSC-IT'] || process.env.LAB_COORD_BSCIT;
+    }
+    
     switch (lab) {
-        case 'BSC IT Lab':
-        case 'BIT Lab':
-            return process.env.LAB_COORD_BSCIT;
         case 'BCA Lab':
             return process.env.LAB_COORD_BCA;
         case 'MCA Lab':
@@ -191,11 +217,16 @@ const emailTemplate = (title, content, actionLabel, actionUrl) => `
  * 1. Notify Lab Coordinator of New Complaint
  */
 const notifyNewComplaint = async (student, complaint) => {
+    console.log(`\x1b[35m[MAILING]\x1b[0m Triggering 'New Complaint' notification for ID: ${complaint.complaint_id}`);
     const labCoord = getLabCoordEmail(complaint.lab);
     const courseCoord = getCourseCoordEmail(student.class_name);
 
-    // CC the student so they know it was received
-    const ccList = courseCoord ? `${courseCoord},${student.email}` : student.email;
+    // CC the student and course coordinator
+    let ccList = [student.email];
+    if (courseCoord && courseCoord !== labCoord) {
+        ccList.push(courseCoord);
+    }
+    const ccString = ccList.join(',');
 
     const html = emailTemplate(
         'New Grievance Submitted',
@@ -228,6 +259,7 @@ const notifyNewComplaint = async (student, complaint) => {
  * 2. Notify IT Support of Approved Complaint
  */
 const notifyApproval = async (student, complaint) => {
+    console.log(`\x1b[35m[MAILING]\x1b[0m Triggering 'Complaint Approved' notification for ID: ${complaint.complaint_id}`);
     const itSupport = process.env.IT_SUPPORT_EMAIL;
 
     const html = emailTemplate(
@@ -261,6 +293,7 @@ const notifyApproval = async (student, complaint) => {
  * 3. Notify Student of Declined Complaint
  */
 const notifyDecline = async (student, complaint, reason) => {
+    console.log(`\x1b[35m[MAILING]\x1b[0m Triggering 'Complaint Declined' notification for ID: ${complaint.complaint_id}`);
     const courseCoord = getCourseCoordEmail(student.class_name);
 
     const html = emailTemplate(
@@ -292,6 +325,7 @@ const notifyDecline = async (student, complaint, reason) => {
  * 4. Notify Student of Resolution
  */
 const notifyResolution = async (student, complaint) => {
+    console.log(`\x1b[35m[MAILING]\x1b[0m Triggering 'Complaint Resolved' notification for ID: ${complaint.complaint_id}`);
     const courseCoord = getCourseCoordEmail(student.class_name);
     const labCoord = getLabCoordEmail(complaint.lab);
 

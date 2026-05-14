@@ -52,7 +52,7 @@ export async function renderAdminDashboard(container) {
                 </div>
                 <button class="btn" style="width: auto;" id="btn-export">Export to CSV</button>
             </div>
-            <div class="table-container">
+            <div class="table-container" style="max-height: 500px; overflow-y: auto;">
                 <table>
                     <thead>
                         <tr>
@@ -155,7 +155,6 @@ async function loadAdminComplaints(filterLab = 'all') {
             <tr>
                 <td style="font-weight:600;">
                     ${c.status === 'Pending' ? '<span class="new-tag">NEW</span> ' : ''}
-                    ${c.is_escalated ? '<span class="new-tag" style="background:#ef4444; color:white;">🔥 ESCALATED</span> ' : ''}
                     ${c.complaint_id}
                 </td>
                 <td>${c.users.name} (${c.users.scholar_id})</td>

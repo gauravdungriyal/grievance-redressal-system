@@ -63,7 +63,7 @@ router.post('/', authMiddleware, async (req, res) => {
                     .single();
 
                 if (userData) {
-                    console.log(`[MAILING] Initiating notification for complaint ${data.complaint_id} by student ${userData.name}`);
+                    console.log(`\x1b[36m[ROUTE]\x1b[0m Initiating notification for complaint ${data.complaint_id} by student ${userData.name}`);
                     await mailer.notifyNewComplaint(userData, data);
                 } else {
                     console.error('[MAILING] User data not found for ID:', req.user.id);
@@ -107,23 +107,23 @@ router.get('/all', authMiddleware, adminMiddleware, async (req, res) => {
             .select('*, users!user_id(name, scholar_id)')
             .order('created_at', { ascending: false });
 
-        // Department Routing Logic
+        // Department-Based Filtering Logic
         if (req.user.department && req.user.role !== 'superadmin') {
-            let allowedCategories = [];
-            switch (req.user.department.toLowerCase()) {
-                case 'it':
-                    allowedCategories = ['Password Reset', 'Keyboard Not Working', 'Mouse Not Working', 'PC Not Working', 'Internet Not Working'];
-                    break;
-                case 'academic':
-                    allowedCategories = ['Attendance Issue', 'Present but Marked Absent'];
-                    break;
-                case 'events':
-                    allowedCategories = ['Saturday Event Idea'];
-                    break;
-            }
+            const dept = req.user.department.toUpperCase();
+            console.log(`[FILTER] Admin ${req.user.name} logged in. Filtering for department: ${dept}`);
 
-            if (allowedCategories.length > 0) {
-                query = query.in('category', allowedCategories);
+            if (dept === 'MCA') {
+                query = query.eq('lab', 'MCA Lab');
+            } else if (dept === 'BCA') {
+                query = query.eq('lab', 'BCA Lab');
+            } else if (dept === 'BSC-IT' || dept === 'BIT') {
+                query = query.or('lab.eq.BSC IT Lab,lab.eq.BIT Lab');
+            } else if (dept === 'IT') {
+                // IT Support sees technical categories across all labs
+                const itCategories = ['Password Reset', 'Keyboard Not Working', 'Mouse Not Working', 'PC Not Working', 'Internet Not Working'];
+                query = query.in('category', itCategories);
+            } else if (dept === 'ACADEMIC') {
+                query = query.in('category', ['Attendance Issue', 'Present but Marked Absent']);
             }
         }
 

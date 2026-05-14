@@ -40,8 +40,23 @@ app.get('/test-network', async (req, res) => {
 const PORT = process.env.PORT || 5000;
 
 // Middleware
+const allowedOrigins = [
+    'https://grievance-redressal-system-plum.vercel.app',
+    'http://localhost:5000',
+    'http://localhost:3000',
+    'http://127.0.0.1:5000'
+];
+
 app.use(cors({
-    origin: 'https://grievance-redressal-system-plum.vercel.app', // Update to match the single URL
+    origin: function (origin, callback) {
+        // allow requests with no origin (like mobile apps or curl requests)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.indexOf(origin) === -1) {
+            var msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+            return callback(new Error(msg), false);
+        }
+        return callback(null, true);
+    },
     credentials: true
 }));
 app.use(express.json());
@@ -63,7 +78,9 @@ app.get(/.*/, (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`Server is running on http://localhost:${PORT}`);
+    console.log(`\x1b[36m%s\x1b[0m`, `--------------------------------------------------`);
+    console.log(`\x1b[32m%s\x1b[0m`, `  Server is running on: http://localhost:${PORT}`);
+    console.log(`\x1b[36m%s\x1b[0m`, `--------------------------------------------------`);
 });
 
 // Automated Escalation Matrix (SLA) - Runs every hour
